@@ -1,69 +1,292 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState } from "react";
+import KPICards from "./components/KPICards";
+
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+
+type Booking = {
+  bookingId: string;
+  customerName: string;
+  vehicleNumber?: string;
+  service?: string;
+  serviceType?: string;
+  priority?: string;
+  status?: string;
+  mechanic?: string;
+  amount?: number;
+  bookingDate?: string;
+};
+
+const COLORS = ["#16a34a", "#f59e0b", "#ef4444", "#3b82f6"];
+
+export default function AnalyticsCharts() {
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchBookings() {
+      try {
+        const response = await fetch("/api/bookings");
+        const result = await response.json();
+
+        if (result.success) {
+          setBookings(result.data);
+        }
+      } catch (error) {
+        console.error("Failed to load bookings:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchBookings();
+
+const interval = setInterval(() => {
+  fetchBookings();
+}, 10000);
+
+return () => clearInterval(interval);
+}, []);
+
+  const bookingData = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - (5 - index));
+
+    const month = date.toLocaleString("en-US", {
+      month: "short",
+    });
+
+    const bookingsInMonth = bookings.filter((booking) => {
+      if (!booking.bookingDate) return false;
+
+      const bookingDate = new Date(booking.bookingDate);
+
+      return (
+        bookingDate.getMonth() === date.getMonth() &&
+        bookingDate.getFullYear() === date.getFullYear()
+      );
+    }).length;
+
+    return {
+      month,
+      bookings: bookingsInMonth,
+    };
+  });
+
+  const revenueData = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - (5 - index));
+
+    const month = date.toLocaleString("en-US", {
+      month: "short",
+    });
+
+    const revenue = bookings
+      .filter((booking) => {
+        if (!booking.bookingDate) return false;
+
+        const bookingDate = new Date(booking.bookingDate);
+
+        return (
+          bookingDate.getMonth() === date.getMonth() &&
+          bookingDate.getFullYear() === date.getFullYear()
+        );
+      })
+      .reduce((total, booking) => total + (booking.amount || 0), 0);
+
+    return {
+      month,
+      revenue,
+    };
+  });
+
+  const statuses = ["Completed", "Pending", "Cancelled", "In Progress"];
+
+  const statusData = statuses.map((status) => ({
+    name: status,
+    value: bookings.filter(
+      (booking) => booking.status === status
+    ).length,
+  }));
+
+  const serviceCounts: Record<string, number> = {};
+
+  bookings.forEach((booking) => {
+    const service =
+      booking.service ||
+      booking.serviceType ||
+      "Other";
+
+    serviceCounts[service] =
+      (serviceCounts[service] || 0) + 1;
+  });
+
+  const serviceData = Object.entries(serviceCounts)
+    .map(([service, bookings]) => ({
+      service,
+      bookings,
+    }))
+    .sort((a, b) => b.bookings - a.bookings)
+    .slice(0, 5);
+
+  if (loading) {
+    return (
+      <section className="mt-8">
+        <h2 className="text-2xl font-bold text-gray-900">
+          Analytics
+        </h2>
+
+        <p className="mt-1 text-gray-500">
+          Loading real-time booking analytics...
+        </p>
+      </section>
+    );
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <section className="mt-8">
+      <KPICards />
+      <h2 className="text-2xl font-bold text-gray-900">
+        Analytics
+      </h2>
+
+      <p className="mt-1 text-gray-500">
+        Monitor bookings, revenue and service performance.
+      </p>
+
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+
+        <div className="rounded-xl bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-semibold">
+            Bookings Over Time
+          </h3>
+
+          <div className="mt-4 h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={bookingData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+
+                <Line
+                  type="monotone"
+                  dataKey="bookings"
+                  stroke="#2563eb"
+                  strokeWidth={3}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="rounded-xl bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-semibold">
+            Revenue Over Time
+          </h3>
+
+          <div className="mt-4 h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={revenueData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+
+                <Bar
+                  dataKey="revenue"
+                  fill="#16a34a"
+                  radius={[6, 6, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      </main>
-    </div>
+
+        <div className="rounded-xl bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-semibold">
+            Booking Status
+          </h3>
+
+          <div className="mt-4 h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={statusData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label
+                >
+                  {statusData.map((entry, index) => (
+                    <Cell
+                      key={entry.name}
+                      fill={COLORS[index]}
+                    />
+                  ))}
+                </Pie>
+
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-semibold">
+            Service Breakdown
+          </h3>
+
+          <div className="mt-4 h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={serviceData}
+                layout="vertical"
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+
+                <XAxis
+                  type="number"
+                  allowDecimals={false}
+                />
+
+                <YAxis
+                  type="category"
+                  dataKey="service"
+                  width={100}
+                />
+
+                <Tooltip />
+
+                <Bar
+                  dataKey="bookings"
+                  fill="#7c3aed"
+                  radius={[0, 6, 6, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+      </div>
+    </section>
   );
 }
